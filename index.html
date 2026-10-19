@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Показания приборов учёта</title>
+<style>
+:root {
+  --paper: #eef2f4;
+  --surface: #ffffff;
+  --ink: #14232e;
+  --muted: #566774;
+  --line: #c6d2da;
+  --accent: #14232e;
+  --on-accent: #ffffff;
+  --hvs: #1d6fa5;
+  --gvs: #b9560f;
+  --ot: #7c4d8f;
+  --err: #b3261e;
+  --err-bg: #fbe9e7;
+  --warn: #6f5200;
+  --warn-bg: #fbf2d4;
+  --ok: #26704a;
+  --focus: #1d6fa5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0e1920;
+    --surface: #15242d;
+    --ink: #e5edf2;
+    --muted: #9db0bd;
+    --line: #2a3c48;
+    --accent: #e5edf2;
+    --on-accent: #0e1920;
+    --hvs: #62b3ea;
+    --gvs: #f29a5f;
+    --ot: #cda2e3;
+    --err: #ff9a92;
+    --err-bg: #3b1f1d;
+    --warn: #ebcb73;
+    --warn-bg: #352f19;
+    --ok: #6cc596;
+    --focus: #62b3ea;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+.wrap { max-width: 780px; margin: 0 auto; padding: 28px 20px 56px; }
+header { display: flex; gap: 16px; align-items: stretch; margin-bottom: 6px; }
+.mark { display: flex; gap: 4px; flex: none; }
+.mark i { display: block; width: 7px; border-radius: 2px; }
+.mark i:nth-child(1) { background: var(--hvs); }
+.mark i:nth-child(2) { background: var(--gvs); }
+.mark i:nth-child(3) { background: var(--ot); }
+h1 { margin: 0; font-size: 1.75rem; line-height: 1.2; font-weight: 650; letter-spacing: -0.015em; }
+.lead { margin: 6px 0 0; color: var(--muted); max-width: 58ch; }
+.privacy {
+  margin: 18px 0 26px; padding: 10px 14px;
+  border-left: 4px solid var(--ok); background: var(--surface);
+  max-width: 62ch; font-size: .95rem;
+}
+fieldset { border: 0; margin: 0 0 6px; padding: 0; }
+legend { padding: 0; margin-bottom: 8px; font-weight: 600; }
+.modes { display: flex; flex-wrap: wrap; gap: 8px; }
+.modes label {
+  position: relative; display: block; flex: 1 1 150px; cursor: pointer;
+  padding: 10px 14px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; font-weight: 600;
+}
+.modes input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.modes label:has(input:checked) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.modes label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.hint { margin: 10px 0 20px; color: var(--muted); max-width: 64ch; min-height: 3em; }
+.drop {
+  display: block; cursor: pointer; text-align: left;
+  padding: 22px 18px; background: var(--surface);
+  border: 2px dashed var(--line); border-radius: 6px;
+}
+.drop.over { border-color: var(--focus); background: color-mix(in srgb, var(--focus) 8%, var(--surface)); }
+.drop:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop-title { display: block; font-weight: 600; }
+.drop-sub { display: block; color: var(--muted); font-size: .95rem; margin-top: 2px; }
+ul.files { list-style: none; margin: 10px 0 0; padding: 0; }
+ul.files li {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 7px 0; border-bottom: 1px solid var(--line); font-size: .95rem;
+}
+ul.files .name { overflow-wrap: anywhere; }
+ul.files .size { color: var(--muted); white-space: nowrap; margin-left: 8px; }
+button, .btn {
+  font: inherit; cursor: pointer; border-radius: 6px;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent);
+  padding: 11px 20px; font-weight: 600; text-decoration: none; display: inline-block;
+}
+button:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+button[disabled] { opacity: .55; cursor: default; }
+button.quiet {
+  background: transparent; color: var(--ink); border-color: var(--line);
+  padding: 4px 10px; font-weight: 500; font-size: .9rem;
+}
+.clear { margin-top: 8px; }
+details.adv { margin: 18px 0; }
+details.adv summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.adv-body { padding: 10px 0 0; display: grid; gap: 14px; max-width: 520px; }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.field .note { color: var(--muted); font-size: .9rem; margin: 4px 0 0; }
+input[type="date"] {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+}
+input[type="date"]:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; }
+#status { color: var(--muted); }
+#status.bad { color: var(--err); font-weight: 600; }
+.loader { margin-top: 14px; max-width: 520px; }
+.loader p { margin: 0 0 6px; color: var(--muted); font-size: .95rem; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 35%; background: var(--hvs); border-radius: 3px; animation: slide 1.3s ease-in-out infinite; }
+@keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 100%; opacity: .5; } }
+
+#result { margin-top: 36px; border-top: 2px solid var(--ink); padding-top: 18px; }
+#result h2 { margin: 0 0 12px; font-size: 1.3rem; font-weight: 650; }
+dl.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0 0 16px; }
+dl.stats div { min-width: 90px; }
+dl.stats dt { color: var(--muted); font-size: .9rem; }
+dl.stats dd { margin: 0; font-size: 1.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+dl.stats dd.bad { color: var(--err); }
+dl.stats dd.zero { color: var(--ok); }
+.next { margin: 0 0 18px; max-width: 64ch; }
+.fail { background: var(--err-bg); border-left: 4px solid var(--err); padding: 12px 14px; margin: 0 0 14px; }
+section.block { margin-top: 26px; }
+section.block h3 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 650; }
+section.block p.cap { margin: 0 0 8px; color: var(--muted); font-size: .92rem; max-width: 64ch; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.total td { font-weight: 650; }
+.tag {
+  display: inline-block; min-width: 3.1em; text-align: center; padding: 1px 6px;
+  border-radius: 4px; font-size: .85rem; font-weight: 650; color: #fff;
+}
+.tag.hvs { background: var(--hvs); } .tag.gvs { background: var(--gvs); } .tag.ot { background: var(--ot); }
+@media (prefers-color-scheme: dark) { .tag { color: #0e1920; } }
+details.more { margin-top: 26px; }
+details.more summary { cursor: pointer; font-weight: 650; }
+pre.log {
+  margin: 10px 0 0; padding: 12px 14px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  font: .85rem/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+ul.issues { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+ul.issues li { padding: 9px 12px 9px 14px; border-bottom: 1px solid var(--line); }
+ul.issues li:last-child { border-bottom: 0; }
+ul.issues li.errrow { box-shadow: inset 4px 0 0 var(--err); }
+ul.issues li.warnrow { box-shadow: inset 4px 0 0 var(--warn); }
+ul.issues .who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+ul.issues .what { margin-top: 2px; color: var(--ink); overflow-wrap: anywhere; }
+@media (min-width: 680px) {
+  ul.issues li { display: grid; grid-template-columns: 230px 1fr; gap: 14px; align-items: baseline; }
+  ul.issues .what { margin-top: 0; }
+}
+footer { margin-top: 48px; color: var(--muted); font-size: .88rem; max-width: 64ch; }
+footer p { margin: 0 0 6px; }
+[hidden] { display: none !important; }
+@media (max-width: 520px) {
+  .wrap { padding: 20px 14px 48px; }
+  h1 { font-size: 1.45rem; }
+  button.primary { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div>
+      <h1>Показания приборов учёта</h1>
+      <p class="lead">Загрузите таблицы подъездов. Страница проверит показания и соберёт файлы на следующий месяц.</p>
+    </div>
+  </header>
+  <p class="privacy">Все расчёты идут в вашем браузере. Таблицы никуда не отправляются и на сервере не хранятся.</p>
+
+  <main>
+    <fieldset>
+      <legend>Что сделать</legend>
+      <div class="modes" id="modes">
+        <label><input type="radio" name="mode" value="close" checked>Закрыть месяц</label>
+        <label><input type="radio" name="mode" value="check">Проверить показания</label>
+        <label><input type="radio" name="mode" value="split">Разбить по подъездам</label>
+      </div>
+    </fieldset>
+    <p class="hint" id="hint"></p>
+
+    <label class="drop" id="drop">
+      <input type="file" id="fileInput" multiple accept=".xlsx,.xls">
+      <span class="drop-title" id="dropTitle"></span>
+      <span class="drop-sub">Перетащите файлы сюда или нажмите, чтобы выбрать</span>
+    </label>
+    <ul class="files" id="fileList"></ul>
+    <div class="clear" id="clearWrap" hidden><button type="button" class="quiet" id="clearBtn">Убрать все файлы</button></div>
+
+    <details class="adv" id="adv">
+      <summary>Дополнительно</summary>
+      <div class="adv-body">
+        <div class="field">
+          <label for="date">Дата съёма нового месяца</label>
+          <input type="date" id="date">
+          <p class="note">Если не указывать, будет 20-е число следующего месяца.</p>
+        </div>
+        <div class="field" id="addField">
+          <label for="addInput">Свежие выгрузки для новых квартир</label>
+          <input type="file" id="addInput" multiple accept=".xlsx,.xls">
+          <p class="note">Квартиры, которых нет в таблицах, будут добавлены из этих выгрузок.</p>
+          <ul class="files" id="addList"></ul>
+        </div>
+      </div>
+    </details>
+
+    <div class="actions">
+      <button type="button" class="primary" id="run">Закрыть месяц</button>
+      <span id="status" role="status" aria-live="polite"></span>
+    </div>
+    <div class="loader" id="loader" hidden>
+      <p id="loaderText"></p>
+      <div class="bar"><i></i></div>
+    </div>
+
+    <section id="result" hidden aria-live="polite"></section>
+  </main>
+
+  <footer>
+    <p>Программа считает показания по правилам, проверенным на реальных таблицах: ошибки, сомнительные значения со знаком «?», перенос в новый месяц.</p>
+    <p>Работает на Python в браузере (Pyodide). Версия <span id="ver"></span>.</p>
+    <p><button type="button" class="quiet" id="selfBtn">Самопроверка модуля</button> <span id="selfOut" role="status"></span></p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const VERSION = "1.0";
+const PY_FILES = ["pokazaniya.py", "web_api.py"];
+const PYODIDE_BASE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+
+const MODES = {
+  close: {
+    action: "Закрыть месяц",
+    drop: "Заполненные таблицы подъездов",
+    hint: "Загрузите таблицы подъездов с показаниями за прошлый месяц. Получите таблицы на следующий месяц, сводные для бухгалтерии, сводку расхода и список проблем.",
+  },
+  check: {
+    action: "Проверить показания",
+    drop: "Заполненные таблицы подъездов",
+    hint: "Только проверка: ошибки, сомнительные значения и предупреждения. Новые файлы не создаются.",
+  },
+  split: {
+    action: "Разбить по подъездам",
+    drop: "Общие выгрузки ГВС, ХВС и ОТ",
+    hint: "Из общих выгрузок получите отдельную таблицу на каждый подъезд, с листами ГВС, ХВС и ОТ.",
+  },
+};
+
+const state = { mode: "close", files: [], addFiles: [], busy: false, xls: false };
+let pyodide = null, api = null, engine = null;   // engine — промис загрузки
+
+const $ = (id) => document.getElementById(id);
+
+/* ---------- маленький помощник для DOM (без innerHTML: значения из таблиц не исполняются) ---------- */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") el.className = v;
+    else if (k === "text") el.textContent = v;
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+
+function tag(res) {
+  const cls = { "ХВС": "hvs", "ГВС": "gvs", "ОТ": "ot" }[res] || "";
+  return h("span", { class: "tag " + cls, text: res });
+}
+
+function fmtNum(v) {
+  if (v === "" || v == null) return "";
+  if (typeof v === "number") return v.toLocaleString("ru-RU", { maximumFractionDigits: 4 });
+  return String(v);
+}
+
+function fmtSize(n) {
+  return n < 1024 ? n + " Б" : n < 1048576 ? Math.round(n / 1024) + " КБ" : (n / 1048576).toFixed(1) + " МБ";
+}
+
+/* ---------- состояние интерфейса ---------- */
+function setStatus(text, bad) {
+  const s = $("status");
+  s.textContent = text || "";
+  s.className = bad ? "bad" : "";
+}
+
+function setLoader(text) {
+  $("loader").hidden = !text;
+  $("loaderText").textContent = text || "";
+}
+
+function applyMode() {
+  const m = MODES[state.mode];
+  $("hint").textContent = m.hint;
+  $("dropTitle").textContent = m.drop;
+  $("run").textContent = m.action;
+  $("adv").hidden = state.mode === "check";
+  $("addField").hidden = state.mode !== "close";
+}
+
+function renderFiles(list, files, onRemove) {
+  list.replaceChildren(...files.map((f, i) => h("li", {},
+    h("span", { class: "name" }, f.name, h("span", { class: "size", text: fmtSize(f.size) })),
+    h("button", { type: "button", class: "quiet", "aria-label": "Убрать файл " + f.name, text: "Убрать" })
+  )));
+  [...list.querySelectorAll("button")].forEach((b, i) => b.addEventListener("click", () => onRemove(i)));
+}
+
+function refreshLists() {
+  renderFiles($("fileList"), state.files, (i) => { state.files.splice(i, 1); refreshLists(); });
+  renderFiles($("addList"), state.addFiles, (i) => { state.addFiles.splice(i, 1); refreshLists(); });
+  $("clearWrap").hidden = state.files.length === 0;
+}
+
+function addFiles(target, fileList) {
+  const skipped = [];
+  for (const f of fileList) {
+    if (!/\.xlsx?$/i.test(f.name)) { skipped.push(f.name); continue; }
+    if (!target.some((x) => x.name === f.name && x.size === f.size)) target.push(f);
+  }
+  refreshLists();
+  setStatus(skipped.length ? "Пропущено (нужны .xlsx или .xls): " + skipped.join(", ") : "", skipped.length > 0);
+}
+
+/* ---------- расчётный модуль (Python в браузере) ---------- */
+function loadScript(src) {
+  return new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = ok;
+    s.onerror = () => fail(new Error("Не удалось загрузить " + src));
+    document.head.append(s);
+  });
+}
+
+async function initEngine() {
+  setLoader("Загружаю расчётный модуль. В первый раз это может занять до минуты, потом откроется быстро.");
+  await loadScript(PYODIDE_BASE + "pyodide.js");
+  pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
+  await pyodide.loadPackage(["micropip", "openpyxl"]);
+  try {
+    await pyodide.runPythonAsync("import micropip\nawait micropip.install('xlrd==2.0.1')");
+    state.xls = true;
+  } catch (e) {
+    state.xls = false;       // .xlsx работает, для .xls нужна конвертация
+  }
+  for (const f of PY_FILES) {
+    const r = await fetch(f + "?v=" + VERSION);
+    if (!r.ok) throw new Error("Не найден файл " + f + " рядом со страницей");
+    pyodide.FS.writeFile("/home/pyodide/" + f, await r.text());
+  }
+  await pyodide.runPythonAsync(
+    "import sys\nif '/home/pyodide' not in sys.path:\n    sys.path.insert(0, '/home/pyodide')\nimport web_api");
+  api = pyodide.pyimport("web_api");
+  setLoader("");
+}
+
+function safeName(name, used) {
+  let n = name.replace(/[\\/]/g, "_");
+  if (used.has(n)) {
+    const dot = n.lastIndexOf(".");
+    const base = dot > 0 ? n.slice(0, dot) : n, ext = dot > 0 ? n.slice(dot) : "";
+    let k = 2;
+    while (used.has(base + " (" + k + ")" + ext)) k++;
+    n = base + " (" + k + ")" + ext;
+  }
+  used.add(n);
+  return n;
+}
+
+async function putFiles(dir, files) {
+  const used = new Set();
+  for (const f of files) {
+    const data = new Uint8Array(await f.arrayBuffer());
+    pyodide.FS.writeFile(dir + "/" + safeName(f.name, used), data);
+  }
+}
+
+function dateArg() {
+  const v = $("date").value;            // ГГГГ-ММ-ДД
+  if (!v || state.mode === "check") return "";
+  const [y, m, d] = v.split("-");
+  return d + "." + m + "." + y;
+}
+
+/* ---------- запуск ---------- */
+async function run() {
+  if (state.busy) return;
+  if (!state.files.length) { setStatus("Сначала добавьте файлы.", true); return; }
+  const all = state.files.concat(state.mode === "close" ? state.addFiles : []);
+  if (all.some((f) => /\.xls$/i.test(f.name)) && engine && !state.xls) {
+    setStatus("Для файлов .xls не загрузилась нужная библиотека. Откройте их в Excel и сохраните как .xlsx.", true);
+    return;
+  }
+  state.busy = true;
+  $("run").disabled = true;
+  setStatus("");
+  $("result").hidden = true;
+  try {
+    if (!api) {
+      setStatus("Жду загрузки расчётного модуля…");
+      await engine;
+      if (all.some((f) => /\.xls$/i.test(f.name)) && !state.xls) {
+        throw new Error("Для файлов .xls не загрузилась нужная библиотека. Откройте их в Excel и сохраните как .xlsx.");
+      }
+    }
+    setStatus("Считаю…");
+    await api.reset();
+    await putFiles("/work/in", state.files);
+    if (state.mode === "close") await putFiles("/work/add", state.addFiles);
+    const res = JSON.parse(await api.process(state.mode, dateArg()));
+    let zip = null;
+    if (res.ok && res.zip_name) zip = pyodide.FS.readFile("/work/_result.zip");
+    renderResult(res, zip);
+    setStatus(res.ok ? "Готово." : "Не получилось.", !res.ok);
+  } catch (e) {
+    setStatus(e.message || String(e), true);
+  } finally {
+    state.busy = false;
+    $("run").disabled = false;
+  }
+}
+
+/* ---------- результат ---------- */
+function issueList(rows) {
+  return h("ul", { class: "issues" }, rows.map((r) => h("li", { class: r.level === "ОШИБКА" ? "errrow" : "warnrow" },
+    h("div", { class: "who" }, tag(r.res), h("span", { text: r.podezd + ", " + r.flat })),
+    h("div", { class: "what", text: r.text.replace(/: опечатка, замена счётчика или переход через ноль$/, "") }))));
+}
+
+function doubtList(rows) {
+  return h("ul", { class: "issues" }, rows.map((r) => h("li", { class: "warnrow" },
+    h("div", { class: "who" }, tag(r.res), h("span", { text: r.podezd + ", " + r.flat })),
+    h("div", { class: "what", text: "Значение «" + r.value + "». Перенесено предыдущее: " +
+      (r.prev == null ? "нет" : fmtNum(r.prev)) + " от " + r.prev_date + "." }))));
+}
+
+function summaryTable(s) {
+  const numeric = (i) => i >= 3;
+  return h("div", { class: "scroll" }, h("table", {},
+    h("thead", {}, h("tr", {}, s.headers.map((t, i) => h("th", { class: numeric(i) ? "num" : "", text: t })))),
+    h("tbody", {}, s.rows.map((r) => h("tr", { class: r[0] === "Итого" ? "total" : "" },
+      r.map((v, i) => i >= 3 && i <= 5 && typeof v === "number" ? h("td", { class: "num", text: fmtNum(v) })
+        : i === 6 ? h("td", { class: "num", text: String(v) })
+        : h("td", { text: v === "" ? "" : String(v) })))))));
+}
+
+function block(title, caption, node, opts) {
+  const d = h("details", { class: "more" }, h("summary", { text: title }));
+  if (opts && opts.open) d.setAttribute("open", "");
+  if (caption) d.append(h("p", { class: "cap", text: caption }));
+  d.append(node);
+  return d;
+}
+
+function download(zip, name) {
+  const url = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+  const a = h("a", { class: "btn", href: url, download: name, text: "Скачать результат (zip)" });
+  setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+  return a;
+}
+
+function renderResult(res, zip) {
+  const box = $("result");
+  const kids = [];
+  const titles = { close: "Месяц закрыт", check: "Проверка выполнена", split: "Таблицы по подъездам готовы" };
+
+  if (!res.ok) {
+    kids.push(h("h2", { text: "Не получилось" }));
+    kids.push(h("div", { class: "fail" }, "Проверьте, что загружены нужные файлы. Подробности ниже."));
+    kids.push(h("pre", { class: "log", text: res.log || "Без сообщения." }));
+    box.replaceChildren(...kids);
+    box.hidden = false;
+    return;
+  }
+
+  kids.push(h("h2", { text: titles[res.mode] }));
+  if (res.counts) {
+    const c = res.counts;
+    const stat = (label, n, bad) => h("div", {}, h("dt", { text: label }),
+      h("dd", { class: n === 0 ? "zero" : (bad ? "bad" : ""), text: String(n) }));
+    kids.push(h("dl", { class: "stats" },
+      stat("Таблиц", c.tables, false) , stat("Строк", c.rows, false),
+      stat("Ошибки", c.errors, true), stat("Предупреждения", c.other, false),
+      stat("Со знаком «?»", c.doubts, false)));
+    if (c.errors || c.doubts) {
+      kids.push(h("p", { class: "next", text: res.mode === "close"
+        ? "Строки с ошибками и со знаком «?» перенесены в новый месяц без нового показания. Исправьте показания в таблицах прошлого месяца и загрузите их заново."
+        : "Исправьте показания в таблицах и загрузите их заново." }));
+    }
+  } else {
+    kids.push(h("p", { class: "next", text: "Создано файлов: " + res.files + "." }));
+  }
+  if (zip) kids.push(h("p", {}, download(zip, res.zip_name)));
+
+  if (res.errors && res.errors.length) {
+    kids.push(h("section", { class: "block" },
+      h("h3", { text: "Ошибки" }),
+      h("p", { class: "cap", text: "Показание меньше предыдущего или не число. Эти строки не приняты. Возможные причины: опечатка, замена счётчика, переход через ноль." }),
+      issueList(res.errors)));
+  }
+  if (res.doubts && res.doubts.length) {
+    kids.push(h("section", { class: "block" },
+      h("h3", { text: "Сомнительные значения со знаком «?»" }),
+      h("p", { class: "cap", text: "Не приняты и не входят в расход. В новый месяц перенесено предыдущее показание." }),
+      doubtList(res.doubts)));
+  }
+  if (res.warnings && res.warnings.length) {
+    kids.push(block("Предупреждения (" + res.warnings.length + ")",
+      "Пустые показания, отметки «н» и необычно большой расход.", issueList(res.warnings)));
+  }
+  if (res.summary && res.summary.rows.length) {
+    kids.push(block("Расход по подъездам", "Считается только по принятым показаниям.", summaryTable(res.summary), { open: true }));
+  }
+  kids.push(block("Журнал работы", "", h("pre", { class: "log", text: res.log })));
+
+  box.replaceChildren(...kids);
+  box.hidden = false;
+  box.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}
+
+/* ---------- события ---------- */
+document.querySelectorAll('input[name="mode"]').forEach((r) =>
+  r.addEventListener("change", () => { state.mode = r.value; applyMode(); setStatus(""); }));
+$("fileInput").addEventListener("change", (e) => { addFiles(state.files, e.target.files); e.target.value = ""; });
+$("addInput").addEventListener("change", (e) => { addFiles(state.addFiles, e.target.files); e.target.value = ""; });
+$("clearBtn").addEventListener("click", () => { state.files = []; refreshLists(); });
+$("run").addEventListener("click", run);
+const drop = $("drop");
+["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => addFiles(state.files, e.dataTransfer.files));
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+
+$("selfBtn").addEventListener("click", async () => {
+  if (state.busy) return;
+  state.busy = true;
+  const out = $("selfOut");
+  out.textContent = "Проверяю…";
+  try {
+    if (!api) await engine;
+    const r = JSON.parse(await api.selftest());
+    out.textContent = r.ok ? "Модуль работает." : "Сбой: " + r.detail;
+  } catch (e) {
+    out.textContent = "Сбой: " + (e.message || e);
+  } finally {
+    state.busy = false;
+  }
+});
+
+$("ver").textContent = VERSION;
+applyMode();
+refreshLists();
+engine = initEngine().catch((e) => {
+  setLoader("");
+  setStatus("Не удалось загрузить расчётный модуль: " + (e.message || e) + ". Проверьте интернет и обновите страницу.", true);
+  throw e;
+});
+engine.catch(() => {});
+</script>
+</body>
+</html>
