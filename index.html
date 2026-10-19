@@ -249,7 +249,7 @@ footer p { margin: 0 0 6px; }
 
 <script>
 "use strict";
-const VERSION = "1.0";
+const VERSION = "1.1";
 const PY_FILES = ["pokazaniya.py", "web_api.py"];
 const PYODIDE_BASE = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
 
@@ -366,11 +366,16 @@ async function initEngine() {
   setLoader("Загружаю расчётный модуль. В первый раз это может занять до минуты, потом откроется быстро.");
   await loadScript(PYODIDE_BASE + "pyodide.js");
   pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
-  await pyodide.loadPackage(["micropip", "openpyxl"]);
+  // openpyxl не входит в список встроенных пакетов Pyodide 0.26.4.
+  // Сначала загружаем micropip, затем ставим Python-пакеты из PyPI.
+  await pyodide.loadPackage("micropip");
+  await pyodide.runPythonAsync("import micropip\nawait micropip.install('openpyxl==3.1.5')");
+
   try {
     await pyodide.runPythonAsync("import micropip\nawait micropip.install('xlrd==2.0.1')");
     state.xls = true;
   } catch (e) {
+    console.warn("Не удалось загрузить xlrd; файлы .xls будут недоступны.", e);
     state.xls = false;       // .xlsx работает, для .xls нужна конвертация
   }
   for (const f of PY_FILES) {
